@@ -98,7 +98,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './SupabaseClient';
 import { decode } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const KEYS = { SESSION: '@session' };
 
@@ -138,17 +138,19 @@ export const getItems = async () => {
 
 // Adds item to Supabase and handles the property mapping
 export const addItem = async (item) => {
+  
 
-  const image_url = item.image ? await uploadImage(item.image) : null;
 
-  const { error } = await supabase.from('items').insert([
+  // console.log(image_url);
+
+  const { error } = await supabase.from('listings').insert([
     {
       title: item.title,
       price: item.price,
       description: item.description,
-      image_url: image_url,
-      seller_name: item.sellerName,
-      seller_email: item.sellerEmail,
+      image_url: item.image_url,
+      sellerName: item.sellerName,
+      sellerEmail: item.sellerEmail,
       is_sold: false
     }
   ]);
@@ -158,42 +160,80 @@ export const addItem = async (item) => {
 // Updates the 'is_sold' status and buyer email in the cloud
 export const buyItem = async (itemId, buyerEmail) => {
   const { error } = await supabase
-    .from('items')
+    .from('listings')
     .update({ is_sold: true, buyer_email: buyerEmail })
     .eq('id', itemId);
-  
+
   if (error) throw error;
 };
 
 // Deletes the specific item from the cloud table
 export const deleteItem = async (id) => {
-  const { error } = await supabase.from('items').delete().eq('id', id);
+  const { error } = await supabase.from('listings').delete().eq('id', id);
   if (error) throw error;
 };
 
 // --- IMAGE LOGIC (Cloud Storage) ---
 
+// export const uploadImage = async (uri) => {
+//   try {
+//     const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+//     const fileName = `public/${Date.now()}.jpg`;
+
+//     const { data, error } = await supabase.storage
+//       .from('itemimgs')
+//       .upload(fileName, decode(base64), { contentType: 'image/jpeg' });
+
+//     if (error) throw error;
+
+//     const { data: urlData } = supabase.storage
+//       .from('itemimgs')
+//       .getPublicUrl(fileName);
+
+//     return urlData.publicUrl;
+//   } catch (err) {
+//     console.error("Upload error:", err);
+//     return null;
+//   }
+// };
+
 export const uploadImage = async (uri) => {
   try {
     const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
     const fileName = `public/${Date.now()}.jpg`;
-    
+
+    // 1. Upload the file
     const { data, error } = await supabase.storage
       .from('itemimgs')
-      .upload(fileName, decode(base64), { contentType: 'image/jpeg' });
+      .upload(fileName, decode(base64), {
+        contentType: 'image/jpeg',
+        upsert: true // Good practice to prevent duplicate errors
+      });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Storage upload error:", error.message);
+      throw error;
+    }
 
+    // 2. Explicitly get the public URL
     const { data: urlData } = supabase.storage
       .from('itemimgs')
       .getPublicUrl(fileName);
 
-    return urlData.publicUrl;
+    if (!urlData || !urlData.publicUrl) {
+      throw new Error("Could not generate public URL");
+    }
+
+    const image_url = urlData.publicUrl;
+    // console.log("Generated URL:", urlData.publicUrl);
+    return image_url; // This link will be saved to your 'listings' table
+
   } catch (err) {
-    console.error("Upload error:", err);
-    return null;
+    console.error("Upload error logic:", err);
+    return null; // If this returns null, your database 'insert' will crash
   }
 };
+
 
 // --- SESSION LOGIC (Local) ---
 // Kept local so the user stays logged in on their specific device

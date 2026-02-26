@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
-import { initializeDb, getSession } from './src/database/Store';
+import { getSession } from './src/database/Store'; // Ensure path matches your project
 import { View, ActivityIndicator } from 'react-native';
 
 export default function App() {
@@ -10,15 +10,31 @@ export default function App() {
 
   useEffect(() => {
     const prepare = async () => {
-      await initializeDb();
-      const session = await getSession();
-      if (session) setInitialRoute('Main');
-      setLoading(false);
+      try {
+        // Check local AsyncStorage for an existing user session
+        const session = await getSession();
+        
+        // If a session exists, skip the login screen
+        if (session) {
+          setInitialRoute('Main');
+        }
+      } catch (error) {
+        console.error("Session check failed:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     prepare();
   }, []);
 
-  if (loading) return <View style={{flex:1, justifyContent:'center'}}><ActivityIndicator size="large"/></View>;
+  // Show a loading spinner while checking the session
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>

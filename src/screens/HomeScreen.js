@@ -1,32 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
-import { getSession, clearSession } from '../database/Mockdb';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, FlatList, Image } from 'react-native';
+import { getSession, clearSession, getItems } from '../database/Store'; // Changed from Mockdb
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
+  const [myItems, setMyItems] = useState([]);
+  const [purchasedItems, setPurchasedItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const sessionData = await getSession();
-        if (sessionData) {
-          setUser(JSON.parse(sessionData));
-        }
-      } catch (error) {
-        console.error("Failed to load session", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadProfileData = async () => {
+    try {
+      const sessionData = await getSession();
+      if (sessionData) {
+        const currentUser = JSON.parse(sessionData);
+        setUser(currentUser);
 
-    fetchUser();
-  }, []);
+        // Fetch all items from Supabase to filter
+        const allItems = await getItems();
+        
+        // Items I am selling
+        setMyItems(allItems.filter(item => item.seller_email === currentUser.email));
+        
+        // Items I have bought (assuming we want to show sold items where I'm the buyer)
+        // Note: You may need a separate function in Store.js to get sold items for this
+        setPurchasedItems(allItems.filter(item => item.buyer_email === currentUser.email));
+      }
+    } catch (error) {
+      console.error("Failed to load profile data", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', loadProfileData);
+    return unsubscribe;
+  }, [navigation]);
 
   const handleLogout = async () => {
     await clearSession();
     navigation.replace('Login');
   };
+
+  const renderMiniCard = ({ item }) => (
+    <View style={styles.miniCard}>
+      <Image 
+        source={item.image_url ? { uri: item.image_url } : require('../../assets/No_Image_Available.jpg')} 
+        style={styles.miniImg} 
+      />
+      <Text style={styles.miniTitle} numberOfLines={1}>{item.title}</Text>
+      <Text style={styles.miniPrice}>${item.price}</Text>
+    </View>
+  );
 
   if (loading) {
     return (
@@ -38,20 +63,30 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.label}>Welcome back,</Text>
-        {/* We get the name directly from the state we set from AsyncStorage */}
-        <Text style={styles.userName}>{user?.name || 'User'}!</Text>
-        
-        <View style={styles.card}>
-          <Text style={styles.infoLabel}>Email:</Text>
-          <Text style={styles.infoValue}>{user?.email}</Text>
-        </View>
+      <FlatList
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.profileCircle}>
+              <Text style={styles.initials}>{user?.name?.charAt(0) || 'U'}</Text>
+            </View>
+            <Text style={styles.userName}>{user?.name}!</Text>
+            <Text style={styles.infoValue}>{user?.email}</Text>
+            
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+            <Text style={styles.sectionTitle}>My active listings ({myItems.length})</Text>
+          </View>
+        }
+        data={myItems}
+        renderItem={renderMiniCard}
+        keyExtractor={item => item.id.toString()}
+        horizontal={true}
+        showsHorizontalScrollIndicator={false}
+        ListEmptyComponent={<Text style={styles.emptyText}>No active items.</Text>}
+        contentContainerStyle={{ paddingLeft: 20 }}
+      />
     </SafeAreaView>
   );
 }
@@ -59,20 +94,26 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  label: { fontSize: 18, color: '#666' },
-  userName: { fontSize: 32, fontWeight: 'bold', color: '#333', marginBottom: 30 },
-  card: { 
-    backgroundColor: '#fff', 
-    padding: 20, 
-    borderRadius: 15, 
-    width: '100%', 
-    elevation: 3, 
-    marginBottom: 40,
-    alignItems: 'center'
+  header: { alignItems: 'center', padding: 20, marginTop: 20 },
+  profileCircle: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 40, 
+    backgroundColor: '#007AFF', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginBottom: 15
   },
-  infoLabel: { fontSize: 14, color: '#999', textTransform: 'uppercase' },
-  infoValue: { fontSize: 18, color: '#444', fontWeight: '500' },
-  logoutBtn: { backgroundColor: '#FF3B30', paddingVertical: 15, paddingHorizontal: 60, borderRadius: 10 },
-  logoutText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  initials: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  userName: { fontSize: 28, fontWeight: 'bold', color: '#333' },
+  infoValue: { fontSize: 16, color: '#666', marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', alignSelf: 'flex-start', marginTop: 20, color: '#333' },
+  logoutBtn: { backgroundColor: '#FF3B3020', paddingVertical: 10, paddingHorizontal: 30, borderRadius: 20 },
+  logoutText: { color: '#FF3B30', fontSize: 14, fontWeight: 'bold' },
+  
+  miniCard: { backgroundColor: '#fff', width: 140, marginRight: 15, borderRadius: 12, padding: 10, elevation: 2, marginVertical: 10 },
+  miniImg: { width: '100%', height: 100, borderRadius: 8, marginBottom: 5 },
+  miniTitle: { fontSize: 14, fontWeight: '600' },
+  miniPrice: { fontSize: 14, color: '#28a745', fontWeight: 'bold' },
+  emptyText: { color: '#999', marginTop: 10, fontStyle: 'italic' }
 });
