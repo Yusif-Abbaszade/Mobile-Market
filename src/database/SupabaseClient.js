@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createClient, processLock } from '@supabase/supabase-js'
 
 export const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL,
-  process.env.EXPO_PUBLIC_SUPABASE_KEY,
+  "https://jlcecnrhlfdboittueyt.supabase.co",
+  "sb_publishable_ldloZDW79qGcZxtZw2T7NA_mMOxPsHE",
   {
     auth: {
       storage: AsyncStorage,

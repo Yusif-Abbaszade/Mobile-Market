@@ -21,7 +21,7 @@ export default function ProfileScreen({ navigation }) {
 
             // Filter using Supabase column names: 'seller_email' and 'buyer_email'
             setMyItems(allItems.filter(i => i.sellerEmail === currentUser.email));
-            setPurchasedItems(allItems.filter(i => i.buyer_email === currentUser.email && i.is_sold));
+            setPurchasedItems(allItems.filter(i => i.buyerEmail === currentUser.email && i.is_sold));
         } catch (error) {
             console.error("Failed to load profile data:", error);
         } finally {

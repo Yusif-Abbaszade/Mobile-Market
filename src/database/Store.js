@@ -161,7 +161,7 @@ export const addItem = async (item) => {
 export const buyItem = async (itemId, buyerEmail) => {
   const { error } = await supabase
     .from('listings')
-    .update({ is_sold: true, buyer_email: buyerEmail })
+    .update({ is_sold: true, buyerEmail: buyerEmail })
     .eq('id', itemId);
 
   if (error) throw error;

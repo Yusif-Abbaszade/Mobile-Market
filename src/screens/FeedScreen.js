@@ -90,8 +90,13 @@ export default function FeedScreen({ navigation }) {
   const handlePurchase = async () => {
     if (!selectedItem || !currentUser) return;
 
+    if(selectedItem.is_sold) {
+      Alert.alert("Unavailable", "This item has already been sold.");
+      return;
+    }
+
     // Supabase column name is 'seller_email'
-    if (selectedItem.seller_email === currentUser.email) {
+    if (selectedItem.sellerEmail === currentUser.email) {
       Alert.alert("Action Denied", "You cannot buy your own item.");
       return;
     }
@@ -107,6 +112,7 @@ export default function FeedScreen({ navigation }) {
       setItems(data);
     } catch (error) {
       Alert.alert("Error", "Purchase failed. Please try again.");
+      console.log(error);
     }
   };
 
@@ -159,13 +165,13 @@ export default function FeedScreen({ navigation }) {
                 style={[
                   styles.modalBtn,
                   styles.buyBtn,
-                  (selectedItem?.seller_email === currentUser?.email || selectedItem?.is_sold) && styles.disabledBtn
+                  (selectedItem?.sellerEmail === currentUser?.email || selectedItem?.is_sold) && styles.disabledBtn
                 ]}
                 onPress={handlePurchase}
-                disabled={selectedItem?.seller_email === currentUser?.email || selectedItem?.is_sold}
+                // disabled={selectedItem?.sellerEmail === currentUser?.email || selectedItem?.is_sold}
               >
                 <Text style={styles.btnText}>
-                  {selectedItem?.is_sold ? "Sold Out" : selectedItem?.seller_email === currentUser?.email ? "Your Item" : "Buy Now"}
+                  {selectedItem?.is_sold ? "Sold Out" : selectedItem?.sellerEmail === currentUser?.email ? "Your Item" : "Buy Now"}
                 </Text>
               </TouchableOpacity>
 
